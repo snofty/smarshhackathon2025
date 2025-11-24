@@ -1,0 +1,374 @@
+{
+  "name": "Production Alert Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "message"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "C09U815J5BQ",
+          "mode": "list",
+          "cachedResultName": "mcp-testing"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "id": "slack-trigger-001",
+      "name": "Slack Alert Trigger",
+      "webhookId": "395f2afc-b926-4cfa-ad2c-6b459312a2cb",
+      "credentials": {
+        "slackApi": {
+          "id": "OOp6bAT8O0MLQYuB",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.text }}",
+              "operation": "contains",
+              "value2": "CRITICAL"
+            },
+            {
+              "value1": "={{ $json.text }}",
+              "operation": "contains",
+              "value2": "HIGH"
+            },
+            {
+              "value1": "={{ $json.text }}",
+              "operation": "contains",
+              "value2": "MEDIUM"
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "id": "filter-alerts-001",
+      "name": "Filter Valid Alerts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and extract alert information\nconst text = $input.item.json.text || '';\n\n// Extract severity\nlet severity = 'UNKNOWN';\nif (text.includes('🔴') || text.includes('[CRITICAL]')) {\n  severity = 'CRITICAL';\n} else if (text.includes('🟠') || text.includes('[HIGH]')) {\n  severity = 'HIGH';\n} else if (text.includes('🟡') || text.includes('[MEDIUM]')) {\n  severity = 'MEDIUM';\n} else if (text.includes('🟢') || text.includes('[LOW]')) {\n  severity = 'LOW';\n}\n\n// Extract service name\nconst serviceMatch = text.match(/\\*Service:\\*\\s*`([^`]+)`/);\nconst service = serviceMatch ? serviceMatch[1] : 'unknown-service';\n\n// Extract environment\nconst envMatch = text.match(/\\*Environment:\\*\\s*`([^`]+)`/);\nconst environment = envMatch ? envMatch[1] : 'production';\n\n// Extract error type\nlet errorType = 'Unknown Error';\nif (text.includes('Database') || text.includes('database')) {\n  errorType = 'Database Error';\n} else if (text.includes('Payment') || text.includes('payment')) {\n  errorType = 'Payment Gateway Error';\n} else if (text.includes('Inventory') || text.includes('inventory')) {\n  errorType = 'Inventory Service Error';\n} else if (text.includes('Memory') || text.includes('memory')) {\n  errorType = 'Memory Issue';\n} else if (text.includes('Timeout') || text.includes('timeout')) {\n  errorType = 'Timeout Error';\n} else if (text.includes('Error Rate') || text.includes('error rate')) {\n  errorType = 'High Error Rate';\n}\n\n// Extract error rate if present\nconst errorRateMatch = text.match(/(\\d+)%/);\nconst errorRate = errorRateMatch ? parseInt(errorRateMatch[1]) : 0;\n\n// Extract timestamp\nconst timeMatch = text.match(/\\*Time:\\*\\s*([^\\n]+)/);\nconst timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();\n\n// Determine if this needs immediate escalation\nconst needsEscalation = severity === 'CRITICAL' || errorRate > 40;\n\nreturn {\n  json: {\n    originalText: text,\n    severity: severity,\n    service: service,\n    environment: environment,\n    errorType: errorType,\n    errorRate: errorRate,\n    timestamp: timestamp,\n    needsEscalation: needsEscalation,\n    channel: $input.item.json.channel,\n    threadTs: $input.item.json.ts,\n    user: $input.item.json.user\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "id": "parse-alert-001",
+      "name": "Parse Alert Details"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.severity }}",
+              "value2": "CRITICAL"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "id": "severity-router-001",
+      "name": "Route by Severity"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a production incident analyst specializing in root cause analysis for the {{ $json.service }} service.\n\nAnalyze this production alert:\n\n{{ $json.originalText }}\n\n**Context:**\n- Service: {{ $json.service }}\n- Environment: {{ $json.environment }}\n- Severity: {{ $json.severity }}\n- Error Type: {{ $json.errorType }}\n- Error Rate: {{ $json.errorRate }}%\n- Timestamp: {{ $json.timestamp }}\n\nProvide a comprehensive analysis with:\n\n1. **Root Cause Analysis**\n   - Identify the most likely root cause\n   - Explain why this error is occurring\n   - Consider recent deployments or changes\n\n2. **Immediate Mitigation Steps** (prioritized)\n   - What to do RIGHT NOW to reduce impact\n   - Commands or actions to execute\n   - Who needs to be involved\n\n3. **Investigation Checklist**\n   - What logs to check\n   - What metrics to review\n   - What services to verify\n\n4. **Long-term Prevention**\n   - How to prevent this in the future\n   - Infrastructure or code improvements\n   - Monitoring enhancements\n\n5. **Related Context**\n   - Similar past incidents\n   - Common patterns for this error type\n   - Relevant documentation or runbooks\n\nFormat your response in clear sections with actionable items. Be specific and technical.",
+        "options": {
+          "systemMessage": "You are an expert Site Reliability Engineer (SRE) with deep knowledge of microservices architecture, distributed systems, and production incident management. You specialize in rapid root cause analysis and providing actionable remediation steps."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        180
+      ],
+      "id": "ai-critical-analysis-001",
+      "name": "AI Critical Analysis"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a production incident analyst for the {{ $json.service }} service.\n\nAnalyze this alert:\n\n{{ $json.originalText }}\n\n**Context:**\n- Service: {{ $json.service }}\n- Severity: {{ $json.severity }}\n- Error Type: {{ $json.errorType }}\n\nProvide:\n\n1. **Quick Assessment**\n   - What's happening\n   - Likely cause\n\n2. **Recommended Actions**\n   - Investigation steps\n   - Potential fixes\n\n3. **Monitoring**\n   - What to watch\n   - When to escalate\n\nBe concise but thorough.",
+        "options": {
+          "systemMessage": "You are an SRE providing quick analysis for non-critical alerts."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        420
+      ],
+      "id": "ai-standard-analysis-001",
+      "name": "AI Standard Analysis"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 2000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        360
+      ],
+      "id": "openai-model-001",
+      "name": "OpenAI GPT-4o-mini",
+      "credentials": {
+        "openAiApi": {
+          "id": "mg76fdBDeBhxX5hl",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format AI response for Slack with better structure\nconst severity = $('Parse Alert Details').item.json.severity;\nconst service = $('Parse Alert Details').item.json.service;\nconst errorType = $('Parse Alert Details').item.json.errorType;\nconst aiOutput = $input.item.json.output;\n\n// Add severity emoji\nconst severityEmoji = {\n  'CRITICAL': '🔴',\n  'HIGH': '🟠',\n  'MEDIUM': '🟡',\n  'LOW': '🟢'\n}[severity] || '⚪';\n\n// Format the response\nconst formattedResponse = `${severityEmoji} **Alert Analysis Complete**\n\n**Service:** \\`${service}\\`\n**Error Type:** ${errorType}\n**Severity:** ${severity}\n\n---\n\n${aiOutput}\n\n---\n\n*Analysis generated at ${new Date().toISOString()}*\n*Powered by AI Alert Analyzer*`;\n\nreturn {\n  json: {\n    formattedResponse: formattedResponse,\n    severity: severity,\n    service: service,\n    channel: $('Parse Alert Details').item.json.channel,\n    threadTs: $('Parse Alert Details').item.json.threadTs\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ],
+      "id": "format-response-001",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09UKE4AHFW",
+          "mode": "list",
+          "cachedResultName": "n8n-output"
+        },
+        "text": "={{ $json.formattedResponse }}",
+        "otherOptions": {
+          "thread_ts": "={{ $json.threadTs }}"
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1560,
+        300
+      ],
+      "id": "send-analysis-001",
+      "name": "Send Analysis to Slack",
+      "credentials": {
+        "slackApi": {
+          "id": "OOp6bAT8O0MLQYuB",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09U815J5BQ",
+          "mode": "list",
+          "cachedResultName": "mcp-testing"
+        },
+        "text": "=⚡ Alert received and being analyzed...\n\n**Service:** `{{ $json.service }}`\n**Severity:** {{ $json.severity }}\n**Error Type:** {{ $json.errorType }}",
+        "otherOptions": {
+          "thread_ts": "={{ $json.threadTs }}"
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        900,
+        480
+      ],
+      "id": "send-ack-001",
+      "name": "Send Acknowledgment",
+      "credentials": {
+        "slackApi": {
+          "id": "OOp6bAT8O0MLQYuB",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log alert for metrics and tracking\nconst alert = $input.item.json;\n\nconsole.log('Alert Processed:', {\n  severity: alert.severity,\n  service: alert.service,\n  errorType: alert.errorType,\n  timestamp: alert.timestamp,\n  needsEscalation: alert.needsEscalation\n});\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        480
+      ],
+      "id": "log-metrics-001",
+      "name": "Log Metrics"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Alert Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Alerts": {
+      "main": [
+        [
+          {
+            "node": "Parse Alert Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Alert Details": {
+      "main": [
+        [
+          {
+            "node": "Route by Severity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Acknowledgment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Severity": {
+      "main": [
+        [
+          {
+            "node": "AI Critical Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Standard Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Critical Analysis": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Standard Analysis": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4o-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Critical Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Standard Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Send Analysis to Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "production",
+      "id": "prod-001"
+    },
+    {
+      "name": "alerts",
+      "id": "alerts-001"
+    }
+  ]
+}
