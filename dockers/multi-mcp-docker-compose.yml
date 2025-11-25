@@ -1,0 +1,138 @@
+# ============================================================================
+# Multi-MCP Server Setup with HTTP Bridges
+# ============================================================================
+# This configuration runs multiple MCP servers (GitHub, Kibana) with 
+# individual HTTP bridges for n8n integration.
+#
+# SERVICES:
+# - github-mcp: GitHub MCP Server (stdio)
+# - github-bridge: HTTP bridge for GitHub MCP (port 3000)
+# - kibana-mcp: Kibana MCP Server (stdio)
+# - kibana-bridge: HTTP bridge for Kibana MCP (port 3001)
+#
+# PREREQUISITES:
+# 1. Docker and Docker Compose installed
+# 2. GitHub Personal Access Token
+# 3. Kibana server URL and credentials
+#
+# SETUP:
+# 1. Create .env file with credentials:
+#    GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx...
+#    KIBANA_URL=http://your-kibana:5601
+#    KIBANA_USERNAME=your-username
+#    KIBANA_PASSWORD=your-password
+#    COMPOSE_PROJECT_NAME=multi-mcp
+#
+# 2. Update repository path below
+# 3. Run: docker compose -f multi-mcp-docker-compose.yml up -d
+#
+# N8N INTEGRATION:
+# GitHub MCP Client:
+#   URL: http://localhost:3000/message
+#   Transport: HTTP Streamable
+#
+# Kibana MCP Client:
+#   URL: http://localhost:3001/message
+#   Transport: HTTP Streamable
+#
+# ============================================================================
+
+services:
+  # ============================================================================
+  # GitHub MCP Server
+  # ============================================================================
+  github-mcp:
+    image: ghcr.io/github/github-mcp-server:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-multi-mcp}-github-mcp-1
+    stdin_open: true
+    tty: true
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+    volumes:
+      - /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro
+    working_dir: /workspace
+    command: ["stdio"]
+    restart: unless-stopped
+
+  # ============================================================================
+  # GitHub MCP HTTP Bridge (Port 3000)
+  # ============================================================================
+  github-bridge:
+    image: node:20-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-multi-mcp}-github-bridge-1
+    working_dir: /app
+    volumes:
+      - ./mcp-bridge:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro
+    ports:
+      - "3000:3000"
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+      - MCP_CONTAINER_NAME=github-mcp
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-multi-mcp}
+      - MCP_SERVER_NAME=github
+    command: sh -c "apk add --no-cache docker-cli && npm install && npm start"
+    restart: unless-stopped
+    depends_on:
+      - github-mcp
+
+  # ============================================================================
+  # Kibana MCP Server
+  # ============================================================================
+  kibana-mcp:
+    image: node:20-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-multi-mcp}-kibana-mcp-1
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    environment:
+      - KIBANA_URL=${ELASTICSEARCH_URL:-${KIBANA_URL}}
+      - KIBANA_API_KEY=${KIBANA_API_KEY:-}
+      - KIBANA_EXTRA_HEADERS=${KIBANA_EXTRA_HEADERS:-}
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - KIBANA_DEFAULT_SPACE=${KIBANA_DEFAULT_SPACE:-default}
+    command: sh -c "npm install -g @tocharian/mcp-server-kibana && mcp-server-kibana"
+    restart: unless-stopped
+
+  # ============================================================================
+  # Kibana MCP HTTP Bridge (Port 3001)
+  # ============================================================================
+  kibana-bridge:
+    image: node:20-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-multi-mcp}-kibana-bridge-1
+    working_dir: /app
+    volumes:
+      - ./kibana-bridge:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3001:3000"
+    environment:
+      - KIBANA_URL=${ELASTICSEARCH_URL:-${KIBANA_URL}}
+      - KIBANA_API_KEY=${KIBANA_API_KEY:-}
+      - KIBANA_EXTRA_HEADERS=${KIBANA_EXTRA_HEADERS:-}
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - KIBANA_DEFAULT_SPACE=${KIBANA_DEFAULT_SPACE:-default}
+      - MCP_CONTAINER_NAME=kibana-mcp
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-multi-mcp}
+      - MCP_SERVER_NAME=kibana
+      - MCP_SERVER_COMMAND=/usr/local/bin/mcp-server-kibana
+    command: sh -c "apk add --no-cache docker-cli && npm install && npm start"
+    restart: unless-stopped
+    depends_on:
+      - kibana-mcp
+
+# ============================================================================
+# Usage:
+#   docker compose -f multi-mcp-docker-compose.yml up -d
+#   docker compose -f multi-mcp-docker-compose.yml logs -f
+#   docker compose -f multi-mcp-docker-compose.yml down
+#
+# Health Checks:
+#   curl http://localhost:3000/health  # GitHub bridge
+#   curl http://localhost:3001/health  # Kibana bridge
+#
+# List Tools:
+#   curl http://localhost:3000/tools   # GitHub tools
+#   curl http://localhost:3001/tools   # Kibana tools
+# ============================================================================

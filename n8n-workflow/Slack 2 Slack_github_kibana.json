@@ -1,0 +1,230 @@
+{
+  "name": "Slack 2 Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "message"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "C09U815J5BQ",
+          "mode": "list",
+          "cachedResultName": "mcp-testing"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0b50c501-3c7a-4431-8366-0529137dc865",
+      "name": "Slack Trigger",
+      "webhookId": "395f2afc-b926-4cfa-ad2c-6b459312a2cb",
+      "credentials": {
+        "slackApi": {
+          "id": "OOp6bAT8O0MLQYuB",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are an SRE alert analysis assistant with access to GitHub code repository tools.\n\nIMPORTANT: When you receive an alert, you MUST:\n1. Extract service names, class names, or file names from the alert\n2. Use the search_code tool to find relevant code in the repository\n3. Use get_file_contents to read specific files when needed\n4. Base your analysis on actual code findings\n\nFor each alert, provide:\n1. Root cause analysis (based on code search results)\n2. Impact assessment\n3. Specific code locations to investigate (file paths and line numbers)\n4. Suggested next steps\n5. What logs to check\n\nExample: If alert mentions \"PaymentService.java:67\", search for \"PaymentService language:Java\" and read that file.\n\nRepository: sunil.kunda/hackathon-2025"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        256,
+        0
+      ],
+      "id": "b1b261ac-9767-4b83-9fd9-ee73ed8be491",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        192
+      ],
+      "id": "c5556652-730e-449d-b455-d1983223ad29",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "mg76fdBDeBhxX5hl",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09UKE4AHFW",
+          "mode": "list",
+          "cachedResultName": "n8n-output"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        608,
+        0
+      ],
+      "id": "1d6e76d7-26cf-4949-821c-fb1f4ac523d6",
+      "name": "Send a message",
+      "webhookId": "af534bd3-405d-4b9b-a505-fd2dd3d366f6",
+      "credentials": {
+        "slackApi": {
+          "id": "OOp6bAT8O0MLQYuB",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.channel }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        352,
+        240
+      ],
+      "id": "7696bd81-037b-4343-be87-976b6f482c73",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://dockers-mcp-bridge-1:3000/message",
+        "include": "selected",
+        "includeTools": [
+          "search_code"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        544,
+        240
+      ],
+      "id": "9a156e43-24cd-4018-89e1-bb9663440cab",
+      "name": "github-mcp-client"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://host.docker.internal:3001/message",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        736,
+        240
+      ],
+      "id": "8b67ea81-eab5-45cc-be7c-f4f3103e42cf",
+      "name": "kibana-mcp-client"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github-mcp-client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "kibana-mcp-client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3ad3ea89-fe16-4e00-87e1-37db44672642",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e3ac67ab6292820390e6fac2926d19bfb83a408782d982cd48684529bcdabf99"
+  },
+  "id": "ULA8u7uAGH4PyijP",
+  "tags": []
+}

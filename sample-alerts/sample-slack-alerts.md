@@ -373,6 +373,636 @@ ORDER BY o.created_at DESC
 
 ---
 
+## Alert 11: Datadog Monitor - High CPU Usage - CRITICAL
+
+```
+🔴 *[Datadog Monitor Alert] High CPU Usage on order-service*
+
+*Monitor:* `[P1] order-service CPU usage > 90%`
+*Monitor ID:* `12345678`
+*Status:* `ALERT` (triggered)
+*Priority:* `P1`
+*Environment:* `production`
+*Time:* 2025-11-21 18:30:00 UTC
+
+*Alert Details:*
+• *Metric:* `system.cpu.user`
+• *Current Value:* 94.5%
+• *Threshold:* > 90% for 5 minutes
+• *Duration:* Alert active for 12 minutes
+• *Evaluation Window:* Last 5 minutes
+
+*Triggered Scope:*
+• *Host:* `prod-order-service-01.us-east-1.compute.internal`
+• *Service:* `order-service`
+• *Environment:* `production`
+• *Region:* `us-east-1`
+• *Instance Type:* `c5.2xlarge` (8 vCPUs)
+
+*Metric Values (Last 15 min):*
+```
+18:15 UTC: 78.2%
+18:20 UTC: 85.4%
+18:25 UTC: 91.3%
+18:30 UTC: 94.5% ← ALERT
+```
+
+*Related Metrics:*
+• *Load Average:* 12.5 (normal: 4.0)
+• *Memory Usage:* 87% (6.96GB / 8GB)
+• *Disk I/O:* 450 IOPS (normal: 150 IOPS)
+• *Network Traffic:* 250 Mbps (normal: 80 Mbps)
+
+*Top Processes (by CPU):*
+1. java (order-service): 85% CPU
+2. mysqld: 6% CPU
+3. node_exporter: 2% CPU
+
+*Recent Events:*
+• 18:15 UTC: Traffic spike detected (+150%)
+• 18:10 UTC: Deployment completed (v1.2.5)
+• 17:45 UTC: Database migration started
+
+*APM Traces:*
+• Slow traces detected: 45 traces > 2s
+• Top slow endpoint: `POST /api/orders` (avg 3.2s)
+• Error rate: 12% (up from 2%)
+
+*Logs (Last 10 min):*
+```
+ERROR [order-service] OutOfMemoryError: GC overhead limit exceeded
+WARN  [order-service] Thread pool exhausted: 200/200 threads active
+ERROR [order-service] Database connection timeout after 30s
+```
+
+*Datadog Links:*
+• Monitor: https://app.datadoghq.com/monitors/12345678
+• Dashboard: https://app.datadoghq.com/dashboard/abc-123
+• APM Service: https://app.datadoghq.com/apm/service/order-service
+• Logs: https://app.datadoghq.com/logs?query=service:order-service
+
+*Notification Settings:*
+• *Notified:* @pagerduty-oncall, @slack-alerts, @ops-team
+• *Escalation:* Auto-escalate to @engineering-lead in 15 minutes
+• *Runbook:* https://wiki.company.com/runbooks/high-cpu-order-service
+
+*Suggested Actions:*
+1. Check for memory leaks causing excessive GC
+2. Review recent deployment (v1.2.5) for performance issues
+3. Scale horizontally: Add 2 more instances
+4. Investigate slow database queries
+5. Consider rolling back to v1.2.4 if issue persists
+
+*Tags:*
+`env:production` `service:order-service` `region:us-east-1` `team:platform` `severity:critical`
+```
+
+---
+
+## Alert 12: Datadog Monitor - Short Format - HIGH
+
+```
+🟠 *[Datadog Alert] Memory Usage Spike*
+
+*Monitor:* `order-service memory > 85%` (ID: 87654321)
+*Status:* ALERT | *Priority:* P2
+*Host:* prod-order-service-02 | *Env:* production
+
+*Metric:* `system.mem.used` = 91.2% (threshold: 85%)
+*Duration:* 8 minutes
+
+*Quick Stats:*
+• Memory: 91.2% (7.3GB / 8GB)
+• Swap: 45% in use
+• Top process: java (6.8GB)
+
+*Links:*
+• Monitor: https://app.datadoghq.com/monitors/87654321
+• Dashboard: https://app.datadoghq.com/dashboard/mem-xyz
+
+*Action:* Investigate memory leak or restart service if OOM imminent
+
+Tags: `env:production` `service:order-service` `team:platform`
+```
+
+---
+
+## Alert 14: Datadog Metric Alert - Order Success Rate Below Threshold - HIGH
+
+```
+🟠 *[Datadog Metric Alert] Order Success Rate Dropped Below 75%*
+
+*Monitor:* `Order Success Rate < 75%` (ID: 98765432)
+*Status:* ALERT | *Priority:* P2
+*Environment:* `production` | *Service:* `order-service`
+*Time:* 2025-11-21 20:45:00 UTC
+
+*Metric Alert Details:*
+• *Metric:* `order.success.rate`
+• *Current Value:* 68.5%
+• *Threshold:* < 75% for 10 minutes
+• *Alert Duration:* 15 minutes
+• *Evaluation:* `(sum:order.success.count / sum:order.total.count) * 100`
+
+*Metric Breakdown (Last 15 min):*
+```
+20:30 UTC: 82.3% ✓
+20:35 UTC: 76.1% ✓
+20:40 UTC: 71.2% ← ALERT
+20:45 UTC: 68.5% ← CURRENT
+```
+
+*Order Statistics:*
+• Total Orders: 1,250
+• Successful Orders: 856 (68.5%)
+• Failed Orders: 394 (31.5%)
+• Orders/min: 83 (normal: 75)
+
+*Failure Breakdown by Error Type:*
+• Payment Gateway Timeout: 45% (177 orders)
+• Database Connection Error: 30% (118 orders)
+• Inventory Service Unavailable: 15% (59 orders)
+• Validation Errors: 10% (40 orders)
+
+*Related Metrics:*
+• `order.error.rate`: 31.5% (threshold: 10%)
+• `order.response.time.p95`: 4.2s (normal: 0.8s)
+• `order.payment.timeout.count`: 177 (spike detected)
+• `database.connection.pool.exhausted`: 12 occurrences
+
+*Correlated Events:*
+• 20:30 UTC: Traffic spike +40% (Black Friday sale started)
+• 20:35 UTC: Payment gateway latency increased to 3.5s
+• 20:38 UTC: Database connection pool at 95% capacity
+
+*Customer Impact:*
+• Failed transactions: 394
+• Estimated revenue loss: $28,450
+• Customer support tickets: +85 in last 15 min
+
+*Datadog Links:*
+• Monitor: https://app.datadoghq.com/monitors/98765432
+• Metrics Dashboard: https://app.datadoghq.com/dashboard/orders-metrics
+• APM: https://app.datadoghq.com/apm/service/order-service
+• Custom Metric: https://app.datadoghq.com/metric/explorer?metric=order.success.rate
+
+*Recommended Actions:*
+1. Scale order-service instances (current: 4 → target: 8)
+2. Increase database connection pool size
+3. Enable payment gateway circuit breaker
+4. Review Black Friday capacity planning
+
+*Tags:* `env:production` `service:order-service` `metric:order.success.rate` `team:platform`
+```
+
+### Custom Metrics Published to Datadog
+
+**File: `src/main/java/com/company/order/metrics/OrderMetricsPublisher.java`**
+
+```java
+@Component
+public class OrderMetricsPublisher {
+    
+    private final StatsDClient statsd;
+    
+    @Autowired
+    public OrderMetricsPublisher(StatsDClient statsd) {
+        this.statsd = statsd;
+    }
+    
+    /**
+     * Publishes order success/failure metrics to Datadog
+     */
+    public void recordOrderSuccess(Order order) {
+        // Increment success counter
+        statsd.incrementCounter("order.success.count", 
+            "env:production", 
+            "service:order-service",
+            "payment_method:" + order.getPaymentMethod());
+        
+        // Increment total counter
+        statsd.incrementCounter("order.total.count",
+            "env:production",
+            "service:order-service");
+        
+        // Record order amount
+        statsd.recordGaugeValue("order.amount", 
+            order.getTotalAmount().doubleValue(),
+            "env:production",
+            "service:order-service");
+        
+        // Record processing time
+        statsd.recordExecutionTime("order.processing.time",
+            order.getProcessingTimeMs(),
+            "env:production",
+            "service:order-service");
+    }
+    
+    /**
+     * Publishes order failure metrics to Datadog
+     */
+    public void recordOrderFailure(OrderRequest request, Exception error) {
+        // Increment failure counter
+        statsd.incrementCounter("order.failure.count",
+            "env:production",
+            "service:order-service",
+            "error_type:" + error.getClass().getSimpleName());
+        
+        // Increment total counter
+        statsd.incrementCounter("order.total.count",
+            "env:production",
+            "service:order-service");
+        
+        // Increment specific error counters
+        if (error instanceof PaymentGatewayException) {
+            statsd.incrementCounter("order.payment.timeout.count",
+                "env:production",
+                "service:order-service");
+        } else if (error instanceof DatabaseException) {
+            statsd.incrementCounter("order.database.error.count",
+                "env:production",
+                "service:order-service");
+        } else if (error instanceof InventoryException) {
+            statsd.incrementCounter("order.inventory.error.count",
+                "env:production",
+                "service:order-service");
+        }
+    }
+    
+    /**
+     * Publishes order success rate (calculated metric)
+     */
+    @Scheduled(fixedRate = 60000) // Every minute
+    public void publishSuccessRate() {
+        // This is calculated in Datadog using:
+        // (sum:order.success.count / sum:order.total.count) * 100
+        
+        // But we can also publish it directly for real-time monitoring
+        double successRate = calculateSuccessRate();
+        statsd.recordGaugeValue("order.success.rate",
+            successRate,
+            "env:production",
+            "service:order-service");
+    }
+    
+    private double calculateSuccessRate() {
+        // Implementation to calculate from recent metrics
+        // This is a simplified example
+        return metricsRepository.getSuccessRateLastMinute();
+    }
+}
+```
+
+### Datadog Monitor Configuration
+
+**Monitor Query:**
+```
+avg(last_10m):( 
+  sum:order.success.count{env:production,service:order-service}.as_count() / 
+  sum:order.total.count{env:production,service:order-service}.as_count() 
+) * 100 < 75
+```
+
+**Monitor Settings:**
+```yaml
+name: "[P2] Order Success Rate < 75%"
+type: metric alert
+query: "avg(last_10m):(sum:order.success.count{env:production,service:order-service}.as_count() / sum:order.total.count{env:production,service:order-service}.as_count()) * 100 < 75"
+message: |
+  Order success rate has dropped below 75%
+  
+  Current value: {{value}}%
+  Threshold: 75%
+  
+  Check the order-service for:
+  - Payment gateway timeouts
+  - Database connection issues
+  - Inventory service availability
+  
+  @slack-alerts @pagerduty-oncall
+thresholds:
+  critical: 60
+  warning: 75
+  recovery: 80
+evaluation_delay: 60
+notify_no_data: true
+no_data_timeframe: 10
+tags:
+  - env:production
+  - service:order-service
+  - team:platform
+  - metric:order.success.rate
+```
+
+### Sample Datadog Metrics Dashboard
+
+**Dashboard Widgets:**
+
+```json
+{
+  "title": "Order Service - Success Rate Monitoring",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "requests": [
+          {
+            "q": "(sum:order.success.count{env:production}.as_count() / sum:order.total.count{env:production}.as_count()) * 100",
+            "display_type": "line",
+            "style": {
+              "palette": "dog_classic",
+              "line_type": "solid",
+              "line_width": "normal"
+            }
+          }
+        ],
+        "title": "Order Success Rate (%)",
+        "markers": [
+          {
+            "value": "y = 75",
+            "display_type": "error dashed"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "requests": [
+          {
+            "q": "(sum:order.success.count{env:production}.as_count() / sum:order.total.count{env:production}.as_count()) * 100",
+            "aggregator": "avg"
+          }
+        ],
+        "title": "Current Success Rate",
+        "precision": 2
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "requests": [
+          {
+            "q": "sum:order.failure.count{env:production} by {error_type}.as_count()",
+            "display_type": "bars",
+            "style": {
+              "palette": "warm"
+            }
+          }
+        ],
+        "title": "Order Failures by Error Type"
+      }
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "requests": [
+          {
+            "q": "top(sum:order.failure.count{env:production} by {error_type}.as_count(), 10, 'sum', 'desc')"
+          }
+        ],
+        "title": "Top Error Types"
+      }
+    }
+  ]
+}
+```
+
+### Application Code Integration
+
+**File: `src/main/java/com/company/order/service/OrderService.java`**
+
+```java
+@Service
+public class OrderService {
+    
+    private final OrderRepository orderRepository;
+    private final PaymentService paymentService;
+    private final OrderMetricsPublisher metricsPublisher;
+    
+    @Autowired
+    public OrderService(OrderRepository orderRepository,
+                       PaymentService paymentService,
+                       OrderMetricsPublisher metricsPublisher) {
+        this.orderRepository = orderRepository;
+        this.paymentService = paymentService;
+        this.metricsPublisher = metricsPublisher;
+    }
+    
+    public Order createOrder(OrderRequest request) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            validateOrder(request);
+            Order order = buildOrder(request);
+            
+            // Process payment
+            PaymentResult payment = processPayment(request, order);
+            order.setPaymentId(payment.getId());
+            
+            // Save order
+            Order savedOrder = orderRepository.save(order);
+            
+            // Calculate processing time
+            long processingTime = System.currentTimeMillis() - startTime;
+            savedOrder.setProcessingTimeMs(processingTime);
+            
+            // Publish success metrics to Datadog
+            metricsPublisher.recordOrderSuccess(savedOrder);
+            
+            log.info("Order created successfully: {}", savedOrder.getId());
+            return savedOrder;
+            
+        } catch (PaymentGatewayException e) {
+            log.error("Payment gateway error for order request", e);
+            metricsPublisher.recordOrderFailure(request, e);
+            throw e;
+            
+        } catch (DatabaseException e) {
+            log.error("Database error while creating order", e);
+            metricsPublisher.recordOrderFailure(request, e);
+            throw e;
+            
+        } catch (InventoryException e) {
+            log.error("Inventory service error for order request", e);
+            metricsPublisher.recordOrderFailure(request, e);
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("Unexpected error while creating order", e);
+            metricsPublisher.recordOrderFailure(request, e);
+            throw new OrderProcessingException("Failed to create order", e);
+        }
+    }
+    
+    private PaymentResult processPayment(OrderRequest request, Order order) {
+        // Payment processing logic with metrics
+        try {
+            if (request.getPaymentMethodId() != null) {
+                return processWithSavedPaymentMethod(request, order);
+            } else {
+                return processWithInlinePayment(request, order);
+            }
+        } catch (Exception e) {
+            // Metrics are published in the calling method
+            throw e;
+        }
+    }
+}
+```
+
+### Sample Logs with Metric Publishing
+
+```log
+2025-11-21 20:40:15.123 INFO  [order-service] [trace-id: abc123] OrderController - Received order request for customer: cust_456
+2025-11-21 20:40:15.134 INFO  [order-service] [trace-id: abc123] OrderService - Creating order with 2 items, total: $156.00
+2025-11-21 20:40:15.145 INFO  [order-service] [trace-id: abc123] PaymentService - Processing payment via Stripe
+2025-11-21 20:40:18.678 ERROR [order-service] [trace-id: abc123] PaymentService - Payment gateway timeout after 3500ms
+2025-11-21 20:40:18.679 ERROR [order-service] [trace-id: abc123] OrderService - Payment gateway error for order request
+2025-11-21 20:40:18.680 INFO  [order-service] [trace-id: abc123] OrderMetricsPublisher - Publishing failure metric: order.failure.count, error_type:PaymentGatewayException
+2025-11-21 20:40:18.681 INFO  [order-service] [trace-id: abc123] OrderMetricsPublisher - Publishing metric: order.payment.timeout.count
+2025-11-21 20:40:18.682 INFO  [order-service] [trace-id: abc123] OrderMetricsPublisher - Publishing metric: order.total.count
+2025-11-21 20:40:18.683 INFO  [order-service] [trace-id: abc123] HTTP Response: 500 Internal Server Error
+
+2025-11-21 20:40:22.234 INFO  [order-service] [trace-id: def456] OrderController - Received order request for customer: cust_789
+2025-11-21 20:40:22.245 INFO  [order-service] [trace-id: def456] OrderService - Creating order with 1 item, total: $45.00
+2025-11-21 20:40:22.256 INFO  [order-service] [trace-id: def456] PaymentService - Processing payment via Stripe
+2025-11-21 20:40:22.456 INFO  [order-service] [trace-id: def456] PaymentService - Payment successful: pay_xyz789
+2025-11-21 20:40:22.467 INFO  [order-service] [trace-id: def456] OrderRepository - Order saved: order_abc789
+2025-11-21 20:40:22.468 INFO  [order-service] [trace-id: def456] OrderMetricsPublisher - Publishing success metric: order.success.count, payment_method:stripe
+2025-11-21 20:40:22.469 INFO  [order-service] [trace-id: def456] OrderMetricsPublisher - Publishing metric: order.total.count
+2025-11-21 20:40:22.470 INFO  [order-service] [trace-id: def456] OrderMetricsPublisher - Publishing metric: order.amount, value:45.0
+2025-11-21 20:40:22.471 INFO  [order-service] [trace-id: def456] OrderMetricsPublisher - Publishing metric: order.processing.time, value:226ms
+2025-11-21 20:40:22.472 INFO  [order-service] [trace-id: def456] HTTP Response: 201 Created
+
+2025-11-21 20:41:00.000 INFO  [order-service] OrderMetricsPublisher - Scheduled task: Publishing order.success.rate = 68.5%
+2025-11-21 20:41:00.001 INFO  [order-service] OrderMetricsPublisher - Success rate below threshold (75%), current: 68.5%
+
+2025-11-21 20:42:00.000 INFO  [order-service] OrderMetricsPublisher - Scheduled task: Publishing order.success.rate = 67.2%
+2025-11-21 20:42:00.001 WARN  [order-service] OrderMetricsPublisher - Success rate continuing to decline: 67.2%
+
+2025-11-21 20:45:00.000 INFO  [order-service] OrderMetricsPublisher - Scheduled task: Publishing order.success.rate = 68.5%
+2025-11-21 20:45:00.001 ERROR [order-service] AlertManager - Datadog monitor triggered: Order Success Rate < 75%
+```
+
+---
+
+## Alert 15: Datadog Metric Alert - Item Export Failure Rate - HIGH
+
+```
+🟠 *Triggered: Item export to PA failure - smfe - us-east-1* - smb - multicustomer*
+
+*Monitor:* Item export to PA failure > 25.0
+*Status:* ALERT
+*Service:* smfe
+*Region:* us-east-1*
+*Customer:* multicustomer | *Tier:* smb
+
+*Metric Value:* 45.0%
+
+*Query:*
+```
+sum(last_1h):sum:smarsh.cc.export.monitoring.parameters.items{customer:multicustomer,tier:smb,cloud_region:us-east-1*,service:smfe,status:error} by {feedexternalid,platform}.as_count() * 100 / sum:smarsh.cc.export.monitoring.parameters.items{customer:multicustomer,tier:smb,cloud_region:us-east-1*,service:smfe,status:success} by {feedexternalid,platform}.as_count() > 25
+```
+
+*Important link for debugging:*
+- Traces: https://app.datadoghq.com/apm/traces
+
+*Notify:* @slack-cc-smb-alerts
+
+*Tags:*
+`feedexternalid:00000000-0000-0000-0000-000000034678` `platform:k8s`
+```
+
+---
+
+## Alert 16: Datadog Metric Alert - Content Processing Failure - CRITICAL
+
+```
+🔴 *Triggered: Content processing failure rate - dnse - us-west-2 - enterprise - client-abc*
+
+*Monitor:* Content processing failure > 15.0
+*Status:* ALERT
+*Service:* dnse
+*Region:* us-west-2
+*Customer:* client-abc | *Tier:* enterprise
+
+*Metric Value:* 28.5%
+
+*Query:*
+```
+sum(last_30m):sum:smarsh.cc.content.processing.items{customer:client-abc,tier:enterprise,cloud_region:us-west-2,service:dnse,status:failed} by {contenttype,source}.as_count() * 100 / sum:smarsh.cc.content.processing.items{customer:client-abc,tier:enterprise,cloud_region:us-west-2,service:dnse,status:processed} by {contenttype,source}.as_count() > 15
+```
+
+*Important link for debugging:*
+- Traces: https://app.datadoghq.com/apm/traces
+
+*Notify:* @slack-cc-enterprise-alerts
+
+*Tags:*
+`contenttype:email` `source:exchange`
+```
+
+---
+
+## Alert 17: Datadog Metric Alert - Export Latency Threshold Exceeded - HIGH
+
+```
+🟠 *Triggered: Export latency threshold exceeded - smfe - eu-central-1 - premium - client-xyz*
+
+*Monitor:* Export latency p95 > 5000ms
+*Status:* ALERT
+*Service:* smfe
+*Region:* eu-central-1
+*Customer:* client-xyz | *Tier:* premium
+
+*Metric Value:* 7250ms
+
+*Query:*
+```
+avg(last_15m):p95:smarsh.cc.export.latency.ms{customer:client-xyz,tier:premium,cloud_region:eu-central-1,service:smfe} by {feedexternalid,destination}.as_count() > 5000
+```
+
+*Important link for debugging:*
+- Traces: https://app.datadoghq.com/apm/traces
+
+*Notify:* @slack-cc-premium-alerts
+
+*Tags:*
+`feedexternalid:00000000-0000-0000-0000-000000056789` `destination:s3`
+```
+
+---
+
+## Alert 18: Datadog Metric Alert - Message Ingestion Failure - CRITICAL
+
+```
+🔴 *Triggered: Message ingestion failure rate - capture-api - us-east-1 - smb - multicustomer*
+
+*Monitor:* Message ingestion failure > 10.0
+*Status:* ALERT
+*Service:* capture-api
+*Region:* us-east-1
+*Customer:* multicustomer | *Tier:* smb
+
+*Metric Value:* 22.3%
+
+*Query:*
+```
+sum(last_1h):sum:smarsh.cc.ingestion.messages{customer:multicustomer,tier:smb,cloud_region:us-east-1,service:capture-api,status:failed} by {channel,connector}.as_count() * 100 / sum:smarsh.cc.ingestion.messages{customer:multicustomer,tier:smb,cloud_region:us-east-1,service:capture-api,status:success} by {channel,connector}.as_count() > 10
+```
+
+*Important link for debugging:*
+- Traces: https://app.datadoghq.com/apm/traces
+
+*Notify:* @slack-cc-smb-alerts
+
+*Tags:*
+`channel:slack` `connector:slack-enterprise-grid`
+```
+
+---
+
 ## How to Use These Alerts
 
 ### For Testing Your n8n Workflow:

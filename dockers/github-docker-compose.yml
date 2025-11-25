@@ -1,0 +1,131 @@
+# ============================================================================
+# GitHub MCP Server - Exposes GitHub repositories via MCP
+# ============================================================================
+#
+# WHAT IT DOES:
+# - Connects to GitHub repositories via GitHub API
+# - Provides tools to read code, manage issues/PRs, analyze commits
+# - Works with remote repos and local repos that have GitHub remotes
+#
+# PREREQUISITES:
+# 1. Create a GitHub Personal Access Token:
+#    Visit: https://github.com/settings/personal-access-tokens/new
+#    Grant permissions: repo, read:org, etc.
+#
+# 2. Set environment variable:
+#    export GITHUB_PERSONAL_ACCESS_TOKEN=your_token_here
+#
+# USAGE:
+#   cd /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025/dockers
+#   docker compose -f github-docker-compose.yml up
+#
+# IMPORTANT NOTES:
+# - The GitHub MCP server uses stdio (stdin/stdout), NOT HTTP
+# - Designed to be integrated into MCP clients (Claude Desktop, VS Code, etc.)
+# - Accesses code through GitHub API, not by reading local files directly
+# - Your local repository must have a GitHub remote configured
+#
+# INTEGRATION WITH MCP CLIENTS:
+# Add to Claude Desktop config (~/.config/Claude/claude_desktop_config.json):
+# {
+#   "mcpServers": {
+#     "github": {
+#       "command": "docker",
+#       "args": [
+#         "run", "-i", "--rm",
+#         "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+#         "-v", "/Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro",
+#         "ghcr.io/github/github-mcp-server",
+#         "stdio"
+#       ],
+#       "env": {
+#         "GITHUB_PERSONAL_ACCESS_TOKEN": "your_token_here"
+#       }
+#     }
+#   }
+# }
+#
+# ALTERNATIVE: Filesystem MCP Server (for local code without GitHub)
+# If you want direct local file access without GitHub:
+#   npm install -g @modelcontextprotocol/server-filesystem
+#   npx @modelcontextprotocol/server-filesystem /path/to/your/code
+#
+# Or add to Claude Desktop config:
+# {
+#   "mcpServers": {
+#     "filesystem": {
+#       "command": "npx",
+#       "args": [
+#         "@modelcontextprotocol/server-filesystem",
+#         "/Users/sunil.kunda/ApplicationCode/POC/hackathon-2025"
+#       ]
+#     }
+#   }
+# }
+#
+# TESTING:
+# Test GitHub MCP Server:
+#   docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN \
+#     ghcr.io/github/github-mcp-server stdio
+#
+# Test Filesystem MCP Server:
+#   npx @modelcontextprotocol/server-filesystem /path/to/code
+#
+# N8N INTEGRATION:
+# This setup includes an HTTP bridge (mcp-bridge) for n8n integration.
+# 
+# For n8n MCP Client node (HTTP Streamable transport):
+#   URL: http://localhost:3000/message
+#   Transport: HTTP Streamable
+#
+# For n8n HTTP Request node (REST API):
+#   GET  /health           - Health check
+#   GET  /tools            - List available MCP tools
+#   POST /tools/:toolName  - Call a specific tool
+#                           Body: { "arguments": { ... } }
+#   GET  /resources        - List available resources
+#   GET  /resources/:uri   - Read a specific resource
+#
+# Example n8n HTTP Request node:
+#   Method: POST
+#   URL: http://localhost:3000/tools/search_code
+#   Body: { "arguments": { "query": "function", "path": "src/" } }
+#
+# MORE INFO:
+# - GitHub MCP Server: https://github.com/github/github-mcp-server
+# - MCP Specification: https://modelcontextprotocol.io
+# - MCP Servers: https://github.com/modelcontextprotocol/servers
+# ============================================================================
+
+services:
+  github-mcp:
+    image: ghcr.io/github/github-mcp-server:latest
+    stdin_open: true
+    tty: true
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=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
+    volumes:
+      # Mount your local repository to access it
+      - /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro
+    working_dir: /workspace
+    command: ["stdio"]
+    # This service uses stdio - needs a bridge for HTTP access
+
+  # MCP-to-HTTP Bridge for n8n integration
+  # Exposes the MCP server over HTTP at http://localhost:3000
+  mcp-bridge:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./mcp-bridge:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro
+    ports:
+      - "3000:3000"
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=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
+      - MCP_CONTAINER_NAME=github-mcp
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-dockers}
+    command: sh -c "apk add --no-cache docker-cli && npm install && npm start"
+    depends_on:
+      - github-mcp
