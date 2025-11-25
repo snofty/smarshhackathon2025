@@ -103,7 +103,7 @@ services:
     stdin_open: true
     tty: true
     environment:
-      - GITHUB_PERSONAL_ACCESS_TOKEN=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
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
     volumes:
       # Mount your local repository to access it
       - /Users/sunil.kunda/ApplicationCode/POC/hackathon-2025:/workspace:ro
@@ -123,7 +123,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GITHUB_PERSONAL_ACCESS_TOKEN=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
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
       - MCP_CONTAINER_NAME=github-mcp
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-dockers}
     command: sh -c "apk add --no-cache docker-cli && npm install && npm start"
