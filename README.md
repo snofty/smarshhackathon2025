@@ -184,6 +184,37 @@ cd ../sample-alerts
 4. Wait 1-2 seconds for acknowledgment
 5. Check output channel (e.g., `#n8n-output`) for AI analysis (5-10 seconds)
 
+### Posting Datadog Alerts to Slack
+
+Use the Python script to post Datadog alert configurations to Slack:
+
+```bash
+cd sample-alerts
+
+# List all available alerts
+python post_alerts_to_slack.py --list
+
+# Post specific alerts by index
+python post_alerts_to_slack.py --token YOUR_TOKEN --channel #alerts --alerts 1,3,5
+
+# Post a range of alerts
+python post_alerts_to_slack.py --token YOUR_TOKEN --channel #alerts --alerts 1-3
+
+# Interactive mode - select which alerts to post
+python post_alerts_to_slack.py --token YOUR_TOKEN --channel #alerts --interactive
+
+# Using environment variables
+export SLACK_TOKEN=xoxb-your-token
+export SLACK_CHANNEL=#alerts
+python post_alerts_to_slack.py --alerts 1,9
+```
+
+**Get Slack OAuth Token:**
+1. Go to https://api.slack.com/apps
+2. Create App → OAuth & Permissions
+3. Add scopes: `chat:write`, `chat:write.public`
+4. Install to workspace → Copy Bot User OAuth Token
+
 ### Expected AI Response
 
 The AI will provide:
