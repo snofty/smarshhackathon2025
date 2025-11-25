@@ -1,0 +1,225 @@
+{
+  "alerts": [
+    {
+      "name": "High Error Rate - Order Service - Production",
+      "description": "Triggered when order creation error rate exceeds 25% in the last hour",
+      "type": "metric alert",
+      "query": "sum(last_1h):sum:order.service.requests{service:order-service,environment:production,status:error} by {region,tier}.as_count() * 100 / sum:order.service.requests{service:order-service,environment:production,status:success} by {region,tier}.as_count() > 25",
+      "message": "## Order Service - High Error Rate Alert\n\n**Service**: order-service\n**Environment**: {{environment.name}}\n**Region**: {{region.name}}\n**Tier**: {{tier.name}}\n\n### Alert Details\n- **Error Rate**: {{value}}%\n- **Threshold**: > 25%\n- **Time Window**: Last 1 hour\n\n### Impact\nOrder creation failures are affecting customer experience. Immediate investigation required.\n\n### Debugging Links\n- [Traces](https://app.datadoghq.com/apm/traces?query=service%3Aorder-service%20status%3Aerror)\n- [Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20status%3Aerror)\n- [Service Dashboard](https://app.datadoghq.com/apm/service/order-service)\n\n### Common Causes\n1. Database connection pool exhaustion\n2. Inventory service unavailability\n3. Payment gateway timeouts\n4. Database query timeouts\n\n### Immediate Actions\n1. Check database connection pool metrics\n2. Verify inventory service health\n3. Review recent deployments\n4. Check for infrastructure issues\n\n**Notify**: @slack-engineering-alerts @pagerduty-oncall",
+      "tags": [
+        "service:order-service",
+        "alert_type:error_rate",
+        "severity:critical",
+        "team:platform"
+      ],
+      "priority": "P1",
+      "thresholds": {
+        "critical": 25,
+        "warning": 15
+      }
+    },
+    {
+      "name": "Database Timeout - Order Service",
+      "description": "Database connection timeouts detected in order service",
+      "type": "log alert",
+      "query": "logs(\"service:order-service DatabaseTimeoutException\").index(\"*\").rollup(\"count\").by(\"region,environment\").last(\"15m\") > 10",
+      "message": "## Database Timeout Alert - Order Service\n\n**Service**: order-service\n**Environment**: {{environment.name}}\n**Region**: {{region.name}}\n\n### Alert Details\n- **Timeout Count**: {{value}}\n- **Threshold**: > 10 in 15 minutes\n- **Error Type**: DatabaseTimeoutException\n\n### Impact\nDatabase queries are timing out, causing order creation failures.\n\n### Debugging Links\n- [Error Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20DatabaseTimeoutException)\n- [Database Metrics](https://app.datadoghq.com/dash/integration/postgresql)\n- [APM Traces](https://app.datadoghq.com/apm/traces?query=service%3Aorder-service%20error%3Atrue)\n\n### Root Causes\n1. **Connection Pool Exhausted**: HikariCP pool size may be insufficient\n2. **Slow Queries**: Long-running queries blocking connections\n3. **Database Load**: High CPU/Memory on database instance\n4. **Network Issues**: Latency between app and database\n\n### Remediation Steps\n1. Check database connection pool metrics: `show pool_status`\n2. Identify slow queries: Review query execution times\n3. Scale database connections if needed\n4. Review recent schema changes\n5. Check database instance metrics (CPU, Memory, IOPS)\n\n**Notify**: @slack-database-team @slack-engineering-alerts",
+      "tags": [
+        "service:order-service",
+        "alert_type:database",
+        "severity:high",
+        "team:database"
+      ],
+      "priority": "P2",
+      "thresholds": {
+        "critical": 10,
+        "warning": 5
+      }
+    },
+    {
+      "name": "Payment Gateway Failures - High Rate",
+      "description": "Payment processing failures exceeding threshold",
+      "type": "metric alert",
+      "query": "sum(last_30m):sum:order.service.payment.failures{service:order-service,environment:production} by {gateway,region}.as_count() > 50",
+      "message": "## Payment Gateway Failure Alert\n\n**Service**: order-service\n**Payment Gateway**: {{gateway.name}}\n**Region**: {{region.name}}\n\n### Alert Details\n- **Failure Count**: {{value}}\n- **Threshold**: > 50 in 30 minutes\n- **Time Window**: Last 30 minutes\n\n### Impact\nPayment processing is failing at an elevated rate. Revenue impact likely.\n\n### Debugging Links\n- [Payment Traces](https://app.datadoghq.com/apm/traces?query=service%3Aorder-service%20resource_name%3A%22POST%20%2Fapi%2Fpayment%2Fprocess%22)\n- [Payment Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20PaymentGatewayException)\n- [Gateway Status](https://status.stripe.com)\n\n### Common Failure Types\n1. **Gateway Timeout**: Stripe API not responding (30s timeout)\n2. **Payment Declined**: Insufficient funds or card issues\n3. **Service Unavailable**: HTTP 503 from payment gateway\n\n### Immediate Actions\n1. Check payment gateway status page\n2. Review payment gateway API credentials\n3. Verify network connectivity to gateway\n4. Check for rate limiting issues\n5. Review recent payment configuration changes\n\n### Escalation\nIf gateway status is operational:\n- Check application logs for specific error patterns\n- Review recent code deployments\n- Verify payment gateway integration settings\n\n**Notify**: @slack-payments-team @slack-engineering-alerts @pagerduty-payments",
+      "tags": [
+        "service:order-service",
+        "alert_type:payment",
+        "severity:critical",
+        "team:payments"
+      ],
+      "priority": "P1",
+      "thresholds": {
+        "critical": 50,
+        "warning": 25
+      }
+    },
+    {
+      "name": "Inventory Service Unavailable",
+      "description": "Inventory service dependency failures",
+      "type": "log alert",
+      "query": "logs(\"service:order-service InventoryException\").index(\"*\").rollup(\"count\").by(\"region,environment\").last(\"10m\") > 20",
+      "message": "## Inventory Service Unavailable Alert\n\n**Service**: order-service\n**Dependency**: inventory-service\n**Region**: {{region.name}}\n\n### Alert Details\n- **Failure Count**: {{value}}\n- **Threshold**: > 20 in 10 minutes\n- **Error Type**: InventoryException\n\n### Impact\nOrders cannot be created due to inventory service unavailability.\n\n### Debugging Links\n- [Inventory Service Health](https://app.datadoghq.com/apm/service/inventory-service)\n- [Service Map](https://app.datadoghq.com/apm/map?service=order-service)\n- [Error Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20InventoryException)\n\n### Root Causes\n1. **Service Down**: inventory-service pods not responding\n2. **Network Issues**: HTTP 503 from inventory-service.prod.internal:8080\n3. **Timeout**: Inventory service response time > 30s\n4. **Circuit Breaker Open**: Too many failures triggered circuit breaker\n\n### Remediation Steps\n1. Check inventory service health: `kubectl get pods -l app=inventory-service`\n2. Review inventory service logs for errors\n3. Verify service discovery/DNS resolution\n4. Check network policies and firewall rules\n5. Review inventory service resource utilization\n6. Consider enabling circuit breaker if not already active\n\n### Temporary Mitigation\n- Consider enabling graceful degradation\n- Use cached inventory data if available\n- Implement retry logic with exponential backoff\n\n**Notify**: @slack-inventory-team @slack-engineering-alerts",
+      "tags": [
+        "service:order-service",
+        "alert_type:dependency",
+        "severity:high",
+        "team:inventory"
+      ],
+      "priority": "P2",
+      "thresholds": {
+        "critical": 20,
+        "warning": 10
+      }
+    },
+    {
+      "name": "Order Service - Response Time Degradation",
+      "description": "Average response time exceeding acceptable threshold",
+      "type": "metric alert",
+      "query": "avg(last_15m):avg:trace.servlet.request.duration{service:order-service,environment:production,resource_name:POST /api/orders} by {region} > 5000",
+      "message": "## Response Time Degradation - Order Service\n\n**Service**: order-service\n**Endpoint**: POST /api/orders\n**Region**: {{region.name}}\n\n### Alert Details\n- **Average Response Time**: {{value}}ms\n- **Threshold**: > 5000ms (5 seconds)\n- **Time Window**: Last 15 minutes\n\n### Impact\nSlow order creation is degrading user experience and may lead to timeouts.\n\n### Debugging Links\n- [APM Performance](https://app.datadoghq.com/apm/service/order-service/operations/servlet.request/resources?env=production)\n- [Trace Analytics](https://app.datadoghq.com/apm/traces?query=service%3Aorder-service%20resource_name%3A%22POST%20%2Fapi%2Forders%22)\n- [Infrastructure Metrics](https://app.datadoghq.com/infrastructure)\n\n### Common Causes\n1. **Database Slow Queries**: Check query execution plans\n2. **High CPU/Memory**: Resource exhaustion on pods\n3. **External Service Latency**: Inventory or payment service delays\n4. **Garbage Collection**: JVM GC pauses\n5. **Network Latency**: Inter-service communication delays\n\n### Investigation Steps\n1. Review APM traces for slow spans\n2. Check database query performance\n3. Monitor JVM metrics (heap usage, GC time)\n4. Verify pod resource limits and requests\n5. Check for recent deployments or configuration changes\n\n### Remediation\n- Scale up pods if CPU/Memory is high\n- Optimize slow database queries\n- Add caching for frequently accessed data\n- Review connection pool settings\n\n**Notify**: @slack-performance-team @slack-engineering-alerts",
+      "tags": [
+        "service:order-service",
+        "alert_type:performance",
+        "severity:warning",
+        "team:platform"
+      ],
+      "priority": "P3",
+      "thresholds": {
+        "critical": 5000,
+        "warning": 3000
+      }
+    },
+    {
+      "name": "Order Service - Memory Usage High",
+      "description": "JVM heap memory usage approaching limits",
+      "type": "metric alert",
+      "query": "avg(last_10m):avg:jvm.heap_memory_used{service:order-service,environment:production} by {host,region} / avg:jvm.heap_memory_max{service:order-service,environment:production} by {host,region} * 100 > 85",
+      "message": "## High Memory Usage - Order Service\n\n**Service**: order-service\n**Host**: {{host.name}}\n**Region**: {{region.name}}\n\n### Alert Details\n- **Heap Usage**: {{value}}%\n- **Threshold**: > 85%\n- **Time Window**: Last 10 minutes\n\n### Impact\nHigh memory usage may lead to:\n- Frequent garbage collection pauses\n- OutOfMemoryError exceptions\n- Service degradation or crashes\n\n### Debugging Links\n- [JVM Metrics](https://app.datadoghq.com/dash/integration/jvm)\n- [Heap Dump Analysis](https://app.datadoghq.com/apm/profiling/service/order-service)\n- [Pod Metrics](https://app.datadoghq.com/containers)\n\n### Investigation Steps\n1. Check for memory leaks in application code\n2. Review recent deployments\n3. Analyze heap dump if available\n4. Check for large object allocations\n5. Review GC logs for patterns\n\n### Immediate Actions\n1. Monitor for OutOfMemoryError\n2. Consider restarting affected pods if memory continues to grow\n3. Increase heap size if consistently high usage\n4. Review application metrics for unusual patterns\n\n### Long-term Solutions\n- Profile application to identify memory leaks\n- Optimize object creation and caching strategies\n- Adjust JVM heap settings based on workload\n- Implement memory monitoring and alerting\n\n**Notify**: @slack-engineering-alerts @slack-sre-team",
+      "tags": [
+        "service:order-service",
+        "alert_type:memory",
+        "severity:warning",
+        "team:sre"
+      ],
+      "priority": "P3",
+      "thresholds": {
+        "critical": 85,
+        "warning": 75
+      }
+    },
+    {
+      "name": "Order Service - Pod Restart Loop",
+      "description": "Kubernetes pod restarting frequently",
+      "type": "metric alert",
+      "query": "change(sum(last_15m),last_15m):sum:kubernetes.containers.restarts{kube_deployment:order-service,environment:production} by {kube_namespace,pod_name} > 3",
+      "message": "## Pod Restart Loop Detected - Order Service\n\n**Service**: order-service\n**Namespace**: {{kube_namespace.name}}\n**Pod**: {{pod_name.name}}\n\n### Alert Details\n- **Restart Count**: {{value}}\n- **Threshold**: > 3 restarts in 15 minutes\n- **Status**: CrashLoopBackOff likely\n\n### Impact\nService instability affecting availability and reliability.\n\n### Debugging Links\n- [Kubernetes Dashboard](https://app.datadoghq.com/orchestration/overview/pod)\n- [Pod Logs](https://app.datadoghq.com/logs?query=pod_name%3A{{pod_name.name}})\n- [Events](https://app.datadoghq.com/event/stream?query=source%3Akubernetes%20pod_name%3A{{pod_name.name}})\n\n### Common Causes\n1. **Application Crash**: Unhandled exceptions causing JVM exit\n2. **OOMKilled**: Pod exceeding memory limits\n3. **Failed Health Checks**: Liveness/readiness probes failing\n4. **Configuration Issues**: Invalid environment variables or secrets\n5. **Resource Limits**: CPU/Memory limits too restrictive\n\n### Investigation Commands\n```bash\n# Check pod status\nkubectl get pod {{pod_name.name}} -n {{kube_namespace.name}}\n\n# View pod logs\nkubectl logs {{pod_name.name}} -n {{kube_namespace.name}} --previous\n\n# Describe pod for events\nkubectl describe pod {{pod_name.name}} -n {{kube_namespace.name}}\n\n# Check resource usage\nkubectl top pod {{pod_name.name}} -n {{kube_namespace.name}}\n```\n\n### Remediation Steps\n1. Review application logs for crash reasons\n2. Check pod events for OOMKilled or other issues\n3. Verify configuration and secrets\n4. Adjust resource limits if needed\n5. Review recent deployments or changes\n\n**Notify**: @slack-kubernetes-team @slack-engineering-alerts @pagerduty-oncall",
+      "tags": [
+        "service:order-service",
+        "alert_type:kubernetes",
+        "severity:critical",
+        "team:sre"
+      ],
+      "priority": "P1",
+      "thresholds": {
+        "critical": 3,
+        "warning": 2
+      }
+    },
+    {
+      "name": "Order Service - Validation Error Spike",
+      "description": "Unusual spike in validation errors indicating potential API abuse or client issues",
+      "type": "log alert",
+      "query": "logs(\"service:order-service ValidationException\").index(\"*\").rollup(\"count\").by(\"region,environment\").last(\"5m\") > 100",
+      "message": "## Validation Error Spike - Order Service\n\n**Service**: order-service\n**Region**: {{region.name}}\n**Environment**: {{environment.name}}\n\n### Alert Details\n- **Error Count**: {{value}}\n- **Threshold**: > 100 in 5 minutes\n- **Error Type**: ValidationException\n\n### Impact\nHigh volume of invalid requests may indicate:\n- API client integration issues\n- Potential API abuse or attack\n- Breaking changes in API contract\n\n### Debugging Links\n- [Validation Error Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20ValidationException)\n- [API Analytics](https://app.datadoghq.com/apm/service/order-service)\n- [Security Monitoring](https://app.datadoghq.com/security/home)\n\n### Common Validation Failures\n1. Missing required fields (customerId, productId)\n2. Invalid quantity (must be > 0)\n3. Invalid amount (must be > 0)\n4. Malformed request payload\n\n### Investigation Steps\n1. Analyze error patterns in logs\n2. Identify source IPs or customer IDs with high error rates\n3. Review recent API documentation changes\n4. Check for client library version issues\n5. Look for patterns indicating automated attacks\n\n### Actions\n1. If abuse detected: Implement rate limiting\n2. If client issue: Notify affected customers\n3. If API change: Review and communicate breaking changes\n4. Monitor for continued patterns\n\n**Notify**: @slack-api-team @slack-security-team",
+      "tags": [
+        "service:order-service",
+        "alert_type:validation",
+        "severity:warning",
+        "team:api"
+      ],
+      "priority": "P3",
+      "thresholds": {
+        "critical": 100,
+        "warning": 50
+      }
+    },
+    {
+      "name": "Order Service - Export Failure Rate (Multi-Customer)",
+      "description": "Item export to PA failure rate exceeding threshold - similar to reference alert",
+      "type": "metric alert",
+      "query": "sum(last_1h):sum:order.service.export.monitoring.items{customer:multicustomer,tier:production,cloud_region:us-east-1*,service:order-service,status:error} by {feedexternalid,platform}.as_count() * 100 / sum:order.service.export.monitoring.items{customer:multicustomer,tier:production,cloud_region:us-east-1*,service:order-service,status:success} by {feedexternalid,platform}.as_count() > 25",
+      "message": "## Item Export to PA Failure - Order Service\n\n**Service**: order-service\n**Region**: us-east-1*\n**Tier**: production\n**Customer**: multicustomer\n**Feed External ID**: {{feedexternalid.name}}\n**Platform**: {{platform.name}}\n\n### Alert Details\n- **Failure Rate**: {{value}}%\n- **Threshold**: > 25%\n- **Time Window**: Last 1 hour\n\n### Impact\nOrder export failures affecting downstream processing and analytics.\n\n### Debugging Links\n- [Export Traces](https://app.datadoghq.com/apm/traces?query=service%3Aorder-service%20operation_name%3Aexport%20status%3Aerror)\n- [Export Logs](https://app.datadoghq.com/logs?query=service%3Aorder-service%20export%20status%3Aerror%20feedexternalid%3A{{feedexternalid.name}})\n- [Feed Dashboard](https://app.datadoghq.com/dashboard/feed-monitoring)\n\n### Common Export Failure Causes\n1. **PA Service Unavailable**: Downstream processing service down\n2. **Data Format Issues**: Schema validation failures\n3. **Authentication Failures**: Expired credentials or tokens\n4. **Network Issues**: Connectivity to export destination\n5. **Rate Limiting**: Export API throttling\n\n### Investigation Steps\n1. Check PA service health status\n2. Review export payload format and schema\n3. Verify authentication credentials\n4. Check network connectivity to export endpoints\n5. Review recent changes to export logic\n\n### Remediation Actions\n1. Verify PA service availability\n2. Check export queue for backlog\n3. Review failed export payloads for patterns\n4. Validate feed configuration for {{feedexternalid.name}}\n5. Consider retry mechanism for failed exports\n\n### Escalation Path\n1. Check if issue is isolated to specific feed or platform\n2. Contact PA team if service is down\n3. Review export SLA and impact on customers\n\n**Notify**: @slack-cc-smb-alerts @slack-export-team @pagerduty-export",
+      "tags": [
+        "service:order-service",
+        "alert_type:export",
+        "severity:critical",
+        "team:export",
+        "customer:multicustomer",
+        "tier:production"
+      ],
+      "priority": "P1",
+      "thresholds": {
+        "critical": 25,
+        "warning": 15
+      }
+    },
+    {
+      "name": "Order Service - Anomaly Detection",
+      "description": "Anomalous behavior detected in order service metrics",
+      "type": "anomaly alert",
+      "query": "avg(last_4h):anomalies(avg:order.service.requests{service:order-service,environment:production} by {region}, 'agile', 2, direction='both', interval=60, alert_window='last_15m', count_default_zero='true') >= 1",
+      "message": "## Anomaly Detected - Order Service\n\n**Service**: order-service\n**Region**: {{region.name}}\n**Metric**: Request Volume\n\n### Alert Details\n- **Current Value**: {{value}}\n- **Expected Range**: {{expected_range}}\n- **Deviation**: {{deviation}}\n- **Detection**: Agile algorithm with 2 standard deviations\n\n### Impact\nUnusual traffic pattern detected - may indicate:\n- Unexpected traffic spike or drop\n- Service degradation\n- Potential security incident\n- Marketing campaign or seasonal event\n\n### Debugging Links\n- [Service Metrics](https://app.datadoghq.com/apm/service/order-service)\n- [Anomaly Dashboard](https://app.datadoghq.com/dashboard/anomaly-detection)\n- [Security Events](https://app.datadoghq.com/security/home)\n\n### Investigation Steps\n1. Determine if spike or drop in traffic\n2. Check for scheduled events or campaigns\n3. Review recent deployments\n4. Verify no security incidents\n5. Check upstream services for issues\n\n### Actions Based on Pattern\n**If Traffic Spike:**\n- Verify auto-scaling is working\n- Check for DDoS or abuse\n- Ensure infrastructure can handle load\n\n**If Traffic Drop:**\n- Check for upstream service failures\n- Verify routing and load balancer configuration\n- Review recent changes to client applications\n\n**Notify**: @slack-engineering-alerts @slack-sre-team",
+      "tags": [
+        "service:order-service",
+        "alert_type:anomaly",
+        "severity:warning",
+        "team:sre"
+      ],
+      "priority": "P3",
+      "thresholds": {
+        "critical": 1
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "created_date": "2025-11-25",
+    "service": "order-service",
+    "team": "platform-engineering",
+    "description": "Comprehensive Datadog alert configurations for order-service microservice",
+    "alert_categories": [
+      "error_rate",
+      "performance",
+      "infrastructure",
+      "dependencies",
+      "security",
+      "anomaly"
+    ],
+    "notification_channels": {
+      "slack": [
+        "@slack-engineering-alerts",
+        "@slack-database-team",
+        "@slack-payments-team",
+        "@slack-inventory-team",
+        "@slack-performance-team",
+        "@slack-sre-team",
+        "@slack-kubernetes-team",
+        "@slack-api-team",
+        "@slack-security-team",
+        "@slack-cc-smb-alerts",
+        "@slack-export-team"
+      ],
+      "pagerduty": [
+        "@pagerduty-oncall",
+        "@pagerduty-payments",
+        "@pagerduty-export"
+      ]
+    },
+    "priority_levels": {
+      "P1": "Critical - Immediate response required",
+      "P2": "High - Response within 30 minutes",
+      "P3": "Warning - Response within 2 hours"
+    }
+  }
+}
